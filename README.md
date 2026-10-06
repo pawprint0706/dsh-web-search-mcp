@@ -142,7 +142,7 @@ powershell -ExecutionPolicy Bypass -File .\verify.ps1 -Search -Query "OpenRouter
   [PASS] 설치된 서버 스크립트 = 프로젝트 소스 (SHA256 일치)
   [PASS] 패치 env DSH_HOME 확인: C:\Users\<user>\.dsh
   [PASS] OpenRouter API 키 확인 (.credentials.yaml)
-  [PASS] initialize: protocolVersion=2025-06-18, serverInfo=dsh-web-search v1.1.1
+  [PASS] initialize: protocolVersion=2025-06-18, serverInfo=dsh-web-search v1.1.2
   [PASS] tools/list: web_search, web_fetch
   [PASS] DSH가 MCP 서버를 실행 중입니다 (PID 12345)
   [PASS] web_search 성공: 응답 3749자, 출처 표기 6건
@@ -187,10 +187,10 @@ powershell -ExecutionPolicy Bypass -File .\tests\run-tests.ps1
 |---|---|---|
 | `model` | `deepseek/deepseek-v4.1-flash` | 검색 결과를 요약·인용하는 모델 |
 | `engine` | `auto` | `auto`/`native`/`exa`/`firecrawl`/`parallel`/`perplexity` |
-| `max_results` | `5` | 검색 1회당 결과 수(1–10) |
+| `max_results` | `5` | 검색 1회당 결과 수. 숫자는 1–10으로 클램프(0·음수는 1), 정수로 해석 불가면 기본값 |
 | `max_total_results` | 없음 | 요청 전체 누적 결과 상한(비용·컨텍스트 제어) |
 | `max_uses` | 없음 | 모델이 수행할 수 있는 검색 횟수 상한 |
-| `plugin_fallback` | `true` | 서버툴이 검색하지 않았을 때 레거시 플러그인 폴백 사용 |
+| `plugin_fallback` | `true` | 서버툴이 검색하지 않았을 때 레거시 플러그인 폴백 사용(`false`/`"false"`/`"no"`/`"0"` 모두 인식) |
 | `base_url` | `https://openrouter.ai/api/v1` | OpenRouter 전용. **호스트가 정확히 `openrouter.ai` 인 https URL만 허용**(유사 호스트·다른 포트·http 는 거부) |
 | `api_key` | 없음 | 직접 키 지정(미지정 시 `.credentials.yaml` 사용) |
 
@@ -319,5 +319,5 @@ dsh-web-search-mcp/
 
 ---
 
-버전: **1.2.0** (MCP 서버 내부 버전 `SERVER_VERSION` = 1.1.1) ·
+버전: **1.2.1** (MCP 서버 내부 버전 `SERVER_VERSION` = 1.1.2) ·
 자세한 변경 이력은 [CHANGELOG.md](CHANGELOG.md)

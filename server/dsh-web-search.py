@@ -33,7 +33,7 @@ import urllib.request
 from pathlib import Path
 
 SERVER_NAME = "dsh-web-search"
-SERVER_VERSION = "1.1.1"
+SERVER_VERSION = "1.1.2"
 
 # DSH MCP 클라이언트(@modelcontextprotocol/client 2.0.0)는 기본 협상 모드가
 # "legacy"라서 2025-era initialize 핸드셰이크를 수행한다. 서버가 돌려준
@@ -271,6 +271,35 @@ def _positive_int(value, default):
     return parsed if parsed > 0 else default
 
 
+def _clamp_results(value, default):
+    """검색 결과 수를 1~10으로 클램프한다.
+
+    정수로 해석되지 않으면 default를 쓴다. `0`/음수도 default로 되돌리지 않고
+    경계값(1)으로 클램프한다 — 문서가 "1~10 클램프"라고 약속하고 있고, 사용자가
+    범위 밖 숫자를 쓴 의도는 "가능한 한 적게/많이"이기 때문이다.
+    """
+    try:
+        parsed = int(value)
+    except (TypeError, ValueError):
+        return default
+    return min(max(parsed, 1), 10)
+
+
+def _as_bool(value, default):
+    """JSON/설정 값을 관대하게 불리언으로 해석한다(`"false"` 문자열 포함)."""
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, (int, float)):
+        return value != 0
+    if isinstance(value, str):
+        text = value.strip().lower()
+        if text in ("true", "yes", "on", "1"):
+            return True
+        if text in ("false", "no", "off", "0"):
+            return False
+    return default
+
+
 def _is_openrouter_base_url(base_url: str) -> bool:
     """호스트가 정확히 openrouter.ai 인 https URL만 허용한다.
 
@@ -304,16 +333,9 @@ def resolve_config():
     ).strip()
 
     options = {
-        "max_results": min(
-            max(
-                _positive_int(
-                    os.environ.get("DSH_WEB_SEARCH_MAX_RESULTS")
-                    or cfg.get("max_results"),
-                    DEFAULT_MAX_RESULTS,
-                ),
-                1,
-            ),
-            10,
+        "max_results": _clamp_results(
+            os.environ.get("DSH_WEB_SEARCH_MAX_RESULTS") or cfg.get("max_results"),
+            DEFAULT_MAX_RESULTS,
         ),
         "engine": (
             os.environ.get("DSH_WEB_SEARCH_ENGINE")
@@ -323,8 +345,8 @@ def resolve_config():
         # 선택: 서버툴 검색 예산 상한 (미설정 시 OpenRouter 기본 동작)
         "max_uses": _positive_int(cfg.get("max_uses"), 0),
         "max_total_results": _positive_int(cfg.get("max_total_results"), 0),
-        # 레거시 web 플러그인 폴백 사용 여부
-        "plugin_fallback": cfg.get("plugin_fallback", True) is not False,
+        # 레거시 web 플러그인 폴백 사용 여부 (문자열 "false" 도 받는다)
+        "plugin_fallback": _as_bool(cfg.get("plugin_fallback"), True),
     }
 
     token = (
@@ -526,6 +548,9 @@ def _fetch(url: str) -> str:
 
 def _html_to_text(html_text: str) -> str:
     text = re.sub(r"(?is)<(script|style|noscript)\b.*?</\1\s*>", "", html_text)
+    # 닫히지 않은 script/style/noscript 는 문서 끝까지 본문으로 취급해 제거한다
+    # (짝을 요구하는 위 정규식만으로는 미종료 블록의 내용이 텍스트로 노출된다).
+    text = re.sub(r"(?is)<(script|style|noscript)\b[^>]*>.*\Z", "", text)
     text = re.sub(r"(?i)<br\s*/?>|</(p|div|li|h[1-6]|tr)\s*>", "\n", text)
     text = re.sub(r"<[^>]+>", "", text)
     text = html.unescape(text)

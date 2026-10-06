@@ -291,7 +291,8 @@ class ResolveConfigTests(IsolatedEnvTestCase):
 
     def test_max_results_is_clamped_to_1_10(self):
         self.write_default_credentials()
-        # (설정값, 기대값) - 비정상값(0, 음수, 문자열)은 기본값으로 되돌아간다.
+        # (설정값, 기대값) - 범위 밖 숫자는 경계값으로 클램프하고,
+        # 정수로 해석되지 않는 값만 기본값으로 되돌린다.
         cases = (
             (99, 10),
             (11, 10),
@@ -299,8 +300,10 @@ class ResolveConfigTests(IsolatedEnvTestCase):
             (1, 1),
             ("7", 7),
             ("abc", server.DEFAULT_MAX_RESULTS),
-            (-4, server.DEFAULT_MAX_RESULTS),
-            (0, server.DEFAULT_MAX_RESULTS),
+            ("", server.DEFAULT_MAX_RESULTS),
+            (None, server.DEFAULT_MAX_RESULTS),
+            (-4, 1),
+            (0, 1),
         )
         for raw, expected in cases:
             with self.subTest(max_results=raw):
@@ -310,6 +313,25 @@ class ResolveConfigTests(IsolatedEnvTestCase):
                 self.assertEqual(options["max_results"], expected)
                 self.assertGreaterEqual(options["max_results"], 1)
                 self.assertLessEqual(options["max_results"], 10)
+
+    def test_plugin_fallback_accepts_string_booleans(self):
+        """JSON 문자열 `"false"` 도 폴백을 끄는 값으로 해석되어야 한다."""
+        self.write_default_credentials()
+        for raw, expected in (
+            ("false", False),
+            ("FALSE", False),
+            ("no", False),
+            ("0", False),
+            ("true", True),
+            (False, False),
+            (0, False),
+            ("maybe", True),
+        ):
+            with self.subTest(plugin_fallback=raw):
+                self.write_user_config({"plugin_fallback": raw})
+                _, _, _, options, error = server.resolve_config()
+                self.assertEqual(error, "")
+                self.assertIs(options["plugin_fallback"], expected)
 
     def test_invalid_user_config_json_is_ignored(self):
         self.write_default_credentials()
@@ -343,6 +365,19 @@ class HtmlToTextTests(unittest.TestCase):
         self.assertNotIn("example.com/a.js", out)
         self.assertNotIn("JS 를 켜세요", out)
         self.assertNotIn("<", out)
+
+    def test_unterminated_script_is_removed_to_end(self):
+        """닫는 태그가 없는 script/style 도 본문으로 새어 나오면 안 된다."""
+        raw = "<html><body><p>본문</p><script>var secret = 1; alert('x');"
+        out = server._html_to_text(raw)
+        self.assertIn("본문", out)
+        self.assertNotIn("secret", out)
+        self.assertNotIn("alert", out)
+
+        unterminated_style = "<p>본문</p><style>.a { color: red; }"
+        out2 = server._html_to_text(unterminated_style)
+        self.assertIn("본문", out2)
+        self.assertNotIn("color: red", out2)
 
     def test_block_tags_become_newlines(self):
         self.assertEqual(server._html_to_text("<p>one</p><p>two</p>"), "one\ntwo")
