@@ -303,6 +303,10 @@ dsh-web-search-mcp/
 
 ## 12. 알려진 제약
 
+- **구조 결정(2026-10-06)**: 이 프로젝트는 **현재의 MCP stdio 서버 구조를 의도적으로
+  유지합니다.** 내장 provider를 되살리는 네이티브 Cordis 플러그인 전환은 조사만 하고
+  채택하지 않았습니다(호스트 프로세스 코드 실행과 DSH 내부 API 의존 때문 —
+  `docs/dsh-internals.md` 5절).
 - **내장 `web_search` 도구는 여전히 목록에 남습니다.** 실제 등록 주체는 앱 번들 안의
   에이전트 프리셋(`preset-standard` → `config.plugins` **내부 행**)이라 프로파일 패치가
   id로 직접 찌를 수 없습니다. `tool-web` 항목에는 등록 자체를 끄는 `search: false`

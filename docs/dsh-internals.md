@@ -168,7 +168,7 @@ POST {baseURL}/messages        # 기본 https://api.deepseek.com/anthropic/v1
 |---|---|
 | 내장 `web-search-deepseek` 의 `baseURL` 을 OpenRouter로 변경 | **불가** — OpenRouter가 `web_search_20250305` 를 실행하지 않음(모델 2종 실측) |
 | `tool-web` 행을 `search: false` 로 override | **무효** — 실제 등록 주체는 프리셋 내부 행. 프리셋 선언 행 전체 재진술이 필요해 채택 안 함 |
-| `ctx.web` 에 OpenRouter search provider를 등록하는 로컬 플러그인 | **미채택(가장 유력한 다음 단계)** — 되면 내장 도구가 살아나고 MCP·Python·AGENTS 우회가 모두 불필요해진다. 아래 5.1 참고 |
+| `ctx.web` 에 OpenRouter search provider를 등록하는 로컬 플러그인 | **의도적 미채택** — 2026-10-06 결정: **현재 MCP stdio 구조를 유지한다.** 되면 내장 도구가 살아나 MCP·Python·AGENTS 우회가 모두 불필요해지지만, 아래 5.1 의 위험(호스트 프로세스 코드 실행, DSH 내부 API 의존)을 감수하지 않기로 했다. 조사 결과는 참고용으로만 남긴다 |
 
 ### 5.1 네이티브 provider 플러그인 (정적 조사 결과)
 
