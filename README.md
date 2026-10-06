@@ -46,43 +46,59 @@ DSH ──(MCP stdio, JSON-RPC)──> dsh-web-search.py ──(HTTPS)──> Op
 
 ## 3. 요구사항
 
-- Windows + PowerShell 5.1 이상
+- **Windows**(PowerShell 5.1 이상, `install.ps1`) 또는 **macOS**(bash, `install.sh`)
 - DSH가 **최소 한 번 실행**되어 `~/.dsh` 가 생성되어 있을 것
-  (검증 환경: DSH **44.0.0**, Windows 10/11 x64)
+  (검증 환경: DSH **44.0.0**, Windows 10/11 x64. macOS는 `install.sh` + CI(macos-latest)
+  픽스처 테스트로 검증합니다)
 - DSH에서 **OpenRouter 제공자에 API 키가 등록**되어 있을 것
   (DSH 설정 → 모델/API 키. 등록하면 `~/.dsh/.credentials.yaml` 의 `refs` 에 저장됩니다)
-- Python 3.8+ — 없으면 DSH 번들 런타임(`~/.dsh/dsh-runtimes/.../python.exe`)을 자동 사용
-- 스크립트는 **UTF-8(BOM 포함)** 으로 저장되어 있습니다. 직접 편집할 때 BOM을 유지하세요
-  (Windows PowerShell 5.1은 BOM 없는 UTF-8의 한글을 CP949로 오해석해 구문 오류가 납니다).
-  `tests/run-tests.ps1` 과 CI가 이 BOM과 구문 파싱을 검사합니다.
+- Python 3.8+ — 없으면 DSH 번들 런타임을 자동 사용
+  (Windows: `~/.dsh/dsh-runtimes/<runtime>/dependencies/python/python.exe`,
+  macOS: `.../dependencies/python/bin/python3`)
+- PowerShell 스크립트(`*.ps1`)는 **UTF-8(BOM 포함)** 으로 저장되어 있습니다. 직접 편집할 때
+  BOM을 유지하세요(Windows PowerShell 5.1은 BOM 없는 UTF-8의 한글을 CP949로 오해석해 구문
+  오류가 납니다). 반대로 셸 스크립트(`*.sh`)는 **BOM 없는 LF** 여야 합니다(shebang/CRLF 문제).
+  두 규칙 모두 테스트가 검사합니다(`tests/run-tests.ps1`, `tests/test_cordis_patch.py`).
 
 ## 4. 빠른 설치
+
+**Windows**
 
 ```powershell
 cd C:\Projects\dsh-web-search-mcp
 powershell -ExecutionPolicy Bypass -File .\install.ps1
 ```
 
+**macOS**
+
+```bash
+cd ~/Projects/dsh-web-search-mcp
+bash install.sh
+```
+
 설치 후 **DSH를 완전히 종료했다가 다시 실행**하면 도구가 나타납니다.
 
 ### 설치 옵션
 
-| 옵션 | 설명 |
-|---|---|
-| `-DshHome <경로>` | DSH 홈 지정(기본: `$env:DSH_HOME` 또는 `~/.dsh`) |
-| `-Profile <이름>` | 프로파일 지정(기본: `cordis.patch.yml` 을 가진 프로파일 자동 탐지) |
-| `-PythonPath <경로>` | MCP 서버를 실행할 python.exe 지정 |
-| `-DryRun` | 파일을 쓰지 않고 계획만 출력 |
-| `-SkipVerify` | 설치 후 자체 점검 생략 |
-| `-NoAgents` | `AGENTS.md` 관리 섹션 설치 생략 |
+| Windows | macOS | 설명 |
+|---|---|---|
+| `-DshHome <경로>` | `--dsh-home <경로>` | DSH 홈 지정(기본: `$DSH_HOME` 또는 `~/.dsh`) |
+| `-Profile <이름>` | `--profile <이름>` | 프로파일 지정(기본: `cordis.patch.yml` 을 가진 프로파일 자동 탐지) |
+| `-PythonPath <경로>` | `--python <경로>` | MCP 서버를 실행할 python 지정 |
+| `-DryRun` | `--dry-run` | 파일을 쓰지 않고 계획만 출력 |
+| `-SkipVerify` | `--skip-verify` | 설치 후 자체 점검 생략 |
+| `-NoAgents` | `--no-agents` | `AGENTS.md` 관리 섹션 설치 생략 |
 
 ## 5. 설치가 하는 일
 
 | # | 대상 | 내용 |
 |---|---|---|
-| 1 | `<DSH_HOME>\mcp\dsh-web-search.py` | MCP 서버 스크립트 복사 |
-| 2 | `<DSH_HOME>\AGENTS.md` | "웹 검색에는 `mcp__dsh-web-search__web_search` 를 쓴다"는 관리 섹션 추가/갱신 |
-| 3 | `<DSH_HOME>\profiles\<profile>\cordis.patch.yml` | 관리 블록 추가(내장 제공자 비활성화 + MCP 행 삽입) |
+| 1 | `<DSH_HOME>/mcp/dsh-web-search.py` | MCP 서버 스크립트 복사 |
+| 2 | `<DSH_HOME>/AGENTS.md` | "웹 검색에는 `mcp__dsh-web-search__web_search` 를 쓴다"는 관리 섹션 추가/갱신 |
+| 3 | `<DSH_HOME>/profiles/<profile>/cordis.patch.yml` | 관리 블록 추가(내장 제공자 비활성화 + MCP 행 삽입) |
+
+두 플랫폼은 같은 결과를 만듭니다: 같은 관리 블록(마커 포함), 같은 AGENTS.md 섹션,
+같은 자격증명/타임아웃 설정. 패치 편집 로직만 다릅니다(PowerShell ↔ `tools/cordis_patch.py`).
 
 추가되는 YAML 블록:
 
@@ -122,12 +138,24 @@ powershell -ExecutionPolicy Bypass -File .\install.ps1
 
 ## 6. 검증
 
+**Windows**
+
 ```powershell
 # 핸드셰이크 + 도구 목록 + DSH 연결 여부
 powershell -ExecutionPolicy Bypass -File .\verify.ps1
 
 # 실제 검색까지 수행 (OpenRouter 호출 = 소액 과금)
 powershell -ExecutionPolicy Bypass -File .\verify.ps1 -Search -Query "OpenRouter server tools"
+```
+
+**macOS**
+
+```bash
+# 핸드셰이크 + 도구 목록 + 패치 정합성 + DSH 연결 여부
+bash verify.sh
+
+# 실제 검색까지 수행 (OpenRouter 호출 = 소액 과금)
+bash verify.sh --search --query "OpenRouter server tools"
 ```
 
 정상 출력 예:
@@ -148,6 +176,9 @@ powershell -ExecutionPolicy Bypass -File .\verify.ps1 -Search -Query "OpenRouter
   [PASS] web_search 성공: 응답 3749자, 출처 표기 6건
 결과: 정상
 ```
+
+macOS 는 같은 항목을 같은 문구로 보고합니다(`[PASS] tools/list: web_search web_fetch` 처럼
+공백 구분만 다릅니다).
 
 점검 항목 중 **패치 정합성 4종**(`command` 경로 / `args` 경로 / `env.DSH_HOME` /
 소스 SHA256)은 가장 흔한 실패 모드인 "DSH가 번들 런타임을 재생성해 python 절대경로가
@@ -223,7 +254,11 @@ powershell -ExecutionPolicy Bypass -File .\tests\run-tests.ps1
 
 서버툴은 모델이 검색 횟수를 정하므로(0~N회) 한 요청에서 여러 번 과금될 수 있습니다.
 
-## 8. 수동 설치 (PowerShell 없이 / 타 OS)
+## 8. 수동 설치 (스크립트를 쓸 수 없을 때)
+
+> macOS는 `bash install.sh` 를 쓰면 됩니다(이 절차를 자동으로 수행합니다).
+> Linux 등 그 밖의 POSIX 환경은 공식 지원 대상은 아니지만 아래 절차대로 직접 구성할 수 있습니다
+> (런타임 python 경로는 macOS와 같은 `dependencies/python/bin/python3` 규칙입니다).
 
 1. `server/dsh-web-search.py` 를 `~/.dsh/mcp/dsh-web-search.py` 로 복사
 2. `~/.dsh/AGENTS.md` 에 `templates/AGENTS.md` 내용을 추가
@@ -260,21 +295,30 @@ powershell -ExecutionPolicy Bypass -File .\tests\run-tests.ps1
 
 | 증상 | 원인 / 조치 |
 |---|---|
-| 도구 목록에 `mcp__dsh-web-search__*` 가 없음 | DSH를 재시작하지 않음 → 재시작. 그래도 없으면 `verify.ps1` 로 서버 자체를 확인 |
-| `verify.ps1` 에서 `DSH가 MCP 서버를 실행 중입니다` 가 `[!]` | DSH가 연결하지 못함 → `cordis.patch.yml` 의 `command`/`args` 경로 확인(따옴표·역슬래시) |
-| `패치의 command 경로가 존재하지 않습니다` (`verify.ps1`) | DSH가 번들 런타임을 재생성함 → `install.ps1` 재실행으로 경로 갱신 |
-| `설치된 서버 스크립트가 server\dsh-web-search.py 와 다릅니다` (`verify.ps1`) | `git pull` 후 재설치 누락 → `install.ps1` 재실행 |
-| `serverName "dsh-web-search" is already in use` | `mcp-dsh-web-search` 행이 중복. DSH MCP 클라이언트는 같은 스코프에서 중복 `serverName`이면 후행 엔트리를 로드하지 않습니다(DSH 문서 규칙 — 이 프로젝트에서 그대로 관측된 문구는 아닙니다) → `install.ps1` 재실행(중복 자동 정리) 또는 중복 행 삭제 |
+| 도구 목록에 `mcp__dsh-web-search__*` 가 없음 | DSH를 재시작하지 않음 → 재시작. 그래도 없으면 `verify.ps1`/`verify.sh` 로 서버 자체를 확인 |
+| `verify.ps1`/`verify.sh` 에서 `DSH가 MCP 서버를 실행 중입니다` 가 `[!]` | DSH가 연결하지 못함 → `cordis.patch.yml` 의 `command`/`args` 경로 확인(따옴표·역슬래시) |
+| `패치의 command 경로가 존재하지 않습니다` | DSH가 번들 런타임을 재생성함 → `install.ps1`/`install.sh` 재실행으로 경로 갱신 |
+| `설치된 서버 스크립트가 server\dsh-web-search.py 와 다릅니다` | `git pull` 후 재설치 누락 → `install.ps1`/`install.sh` 재실행 |
+| `serverName "dsh-web-search" is already in use` | `mcp-dsh-web-search` 행이 중복. DSH MCP 클라이언트는 같은 스코프에서 중복 `serverName`이면 후행 엔트리를 로드하지 않습니다(DSH 문서 규칙 — 이 프로젝트에서 그대로 관측된 문구는 아닙니다) → `install.ps1`/`install.sh` 재실행(중복 자동 정리) 또는 중복 행 삭제 |
 | 검색이 `configured web provider "deepseek-official" is not registered` | 내장 `web_search` 도구를 호출한 것 → `mcp__dsh-web-search__web_search` 사용(관리 블록이 내장 제공자를 비활성화한 상태이며 이는 정상) |
-| `OpenRouter 토큰을 찾지 못했습니다` | DSH 설정에서 OpenRouter API 키 등록, 또는 `web-search.json` 의 `api_key`, 또는 `DSH_WEB_SEARCH_API_KEY` |
+| `OpenRouter 토큰을 찾지 못했습니다` | DSH 설정에서 OpenRouter API 키 등록, 또는 `web-search.json` 의 `api_key`, 또는 MCP 행 `env` 의 `DSH_WEB_SEARCH_API_KEY` |
 | `OpenRouter 오류: ...` | 키/크레딧/모델명 확인. `engine` 을 `exa` 로 명시해 보세요 |
 | DSH가 부팅되지 않음 | `cordis.patch.yml.bak-<타임스탬프>` 로 복원 후, YAML 문법(탭/따옴표) 확인 |
-| python 경로가 바뀜(DSH 런타임 재생성) | `install.ps1` 재실행으로 `command` 경로 갱신 |
+| python 경로가 바뀜(DSH 런타임 재생성) | `install.ps1`/`install.sh` 재실행으로 `command` 경로 갱신 |
+| macOS에서 `install.sh: command not found`/`bad interpreter` | BOM·CRLF가 섞인 파일을 받은 경우입니다 → 저장소에서 다시 받으세요(셸 스크립트는 BOM 없는 LF) |
 
 ## 10. 제거
 
+**Windows**
+
 ```powershell
 powershell -ExecutionPolicy Bypass -File .\uninstall.ps1
+```
+
+**macOS**
+
+```bash
+bash uninstall.sh
 ```
 
 관리 블록/AGENTS.md 관리 섹션/설치된 스크립트를 제거합니다(백업 생성).
@@ -284,19 +328,25 @@ powershell -ExecutionPolicy Bypass -File .\uninstall.ps1
 
 ```
 dsh-web-search-mcp/
-├─ install.ps1                 설치 (멱등)
-├─ uninstall.ps1               제거
-├─ verify.ps1                  사후 점검 (stdio 프로브 + 패치 정합성)
+├─ install.ps1                 Windows 설치 (멱등)
+├─ uninstall.ps1               Windows 제거
+├─ verify.ps1                  Windows 사후 점검 (stdio 프로브 + 패치 정합성)
+├─ install.sh                  macOS 설치 (멱등, bash 3.2 호환)
+├─ uninstall.sh                macOS 제거
+├─ verify.sh                   macOS 사후 점검 (같은 항목)
+├─ tools/
+│   ├─ posix-common.sh         POSIX 공용 함수 (홈/python 해석, 출력)
+│   └─ cordis_patch.py         패치·AGENTS.md 편집기 (install.sh/uninstall.sh/verify.sh 공용)
 ├─ server/
-│   └─ dsh-web-search.py       MCP 서버 본체
+│   └─ dsh-web-search.py       MCP 서버 본체 (두 플랫폼 공통)
 ├─ templates/
 │   └─ AGENTS.md               전역 지침 템플릿
 ├─ examples/
 │   └─ web-search.json         선택 설정 예시
 ├─ docs/
 │   └─ dsh-internals.md        DSH 내부 구조 조사 노트 (행 구성·provider seam·GUI 표면)
-├─ tests/                      단위 테스트 + stdio 스모크 테스트
-├─ .github/workflows/ci.yml    CI (windows-latest)
+├─ tests/                      단위 테스트(서버·패치 편집기) + stdio 스모크 + POSIX 픽스처 테스트
+├─ .github/workflows/ci.yml    CI (windows-latest + macos-latest)
 ├─ CHANGELOG.md
 └─ README.md
 ```
@@ -322,12 +372,17 @@ dsh-web-search-mcp/
   (검색: `mcp`, `dsh-mcp-client`). 자세한 근거와 GUI에 노출시키는 방법은
   `docs/dsh-internals.md` 6절 참고.
 - `command` 는 python 실행 파일의 **고정 경로**입니다. DSH가 번들 런타임을 재생성하면
-  `install.ps1` 재실행이 필요할 수 있습니다.
+  `install.ps1`/`install.sh` 재실행이 필요할 수 있습니다(`verify.ps1`/`verify.sh` 가 감지).
 - DSH MCP 클라이언트는 기본 협상 모드가 `legacy`(2025-era)이므로 서버는
   `2025-06-18` 로 응답합니다(클라이언트 지원 목록에 포함되어 정상 연결).
-- macOS/Linux 는 `install.ps1` 대신 **8. 수동 설치** 절차를 사용하세요.
+- **macOS**: 번들 런타임 python 경로는 `dependencies/python/bin/python3` 입니다
+  (Windows는 `dependencies/python/python.exe` — DSH 런타임 규칙이며 Linux도 같은 규칙).
+  `install.sh` 는 macOS(Darwin) 전용이며 다른 플랫폼에서는 명시적으로 실패합니다
+  (테스트 목적의 `DSH_INSTALL_FORCE_PLATFORM=1` 우회가 있습니다).
+- **Linux 는 공식 지원 대상이 아닙니다.** `install.sh` 의 로직은 POSIX 이지만 검증하지
+  않았으므로, 필요하면 **8. 수동 설치** 절차를 사용하세요.
 
 ---
 
-버전: **1.2.1** (MCP 서버 내부 버전 `SERVER_VERSION` = 1.1.2) ·
+버전: **1.3.0** (MCP 서버 내부 버전 `SERVER_VERSION` = 1.1.2) ·
 자세한 변경 이력은 [CHANGELOG.md](CHANGELOG.md)

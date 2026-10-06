@@ -1,5 +1,35 @@
 # 변경 이력
 
+## 1.3.0
+
+macOS 지원 추가. Windows 경로(`install.ps1`/`verify.ps1`/`uninstall.ps1`)는 그대로 두고
+같은 결과를 만드는 POSIX 스크립트를 별도로 제공한다.
+
+- **신규 `install.sh` / `verify.sh` / `uninstall.sh`** — macOS(Darwin)용. bash 3.2(macOS 기본
+  `/bin/bash`) 호환(연관 배열·`mapfile`·`${var,,}` 미사용). `--dsh-home`, `--profile`,
+  `--python`, `--dry-run`, `--skip-verify`/`--no-agents`, `--search` 등 Windows 옵션과 대응.
+  `install.sh` 는 다른 플랫폼에서 명시적으로 실패한다(테스트용
+  `DSH_INSTALL_FORCE_PLATFORM=1` 우회 제공).
+- **신규 `tools/cordis_patch.py`** — 패치/AGENTS.md 편집 로직을 테스트 가능한 python 으로 분리
+  (`install.ps1` 이 PowerShell 로 하던 것과 같은 동작: 마커 블록 교체, 중복 id 제거,
+  빈 `- insert:` 정리, 원본 줄바꿈 스타일 보존, 원자적 쓰기). `patch-get` 으로
+  `verify.sh` 가 패치의 `command`/`args`/`env.DSH_HOME`/타임아웃을 읽는다.
+- **신규 `tools/posix-common.sh`** — 세 셸 스크립트가 공유하는 홈/프로파일/python 해석과 출력.
+  번들 런타임 python 경로 규칙을 플랫폼에 맞게 처리한다
+  (macOS `dependencies/python/bin/python3`, Windows `python.exe`).
+- **검증 강화**: `verify.sh` 도 Windows와 같은 항목을 점검한다 — 패치 정합성 4종
+  (`command`/`args`/`env.DSH_HOME`/소스 SHA256), stdio 핸드셰이크, `tools/list`,
+  DSH 자식 프로세스(`pgrep`), 선택적 실검색.
+- **테스트**: `tests/test_cordis_patch.py`(편집기 단위 테스트 + 마커 일치 + 셸 스크립트
+  BOM/CRLF 검사)와 `tests/posix-fixture-test.sh`(임시 DSH 홈으로 설치 → 멱등성 → 검증 →
+  드리프트 감지 → 제거, 31개 단언). 단위 테스트 57 → **79개**.
+- **CI**: `macos-latest` 잡 추가 — `bash -n` 구문 검사, 단위 테스트, 픽스처 설치/제거 테스트.
+- **`.gitattributes`**: `*.sh text eol=lf`(셸 스크립트는 BOM 없는 LF).
+- **문서**: macOS 설치/검증/제거 절차, 플랫폼별 옵션 대응표, 파일 구성, macOS 제약
+  (`bin/python3`, Darwin 전용 게이트, Linux 미지원) 추가.
+
+서버 본체(`server/dsh-web-search.py`)는 변경하지 않았다 — 두 플랫폼이 같은 서버를 쓴다.
+
 ## 1.2.1
 
 - **서버: 낮은 심각도 결함 3건 수정** (`SERVER_VERSION` 1.1.1 → **1.1.2**).

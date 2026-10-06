@@ -79,3 +79,37 @@ jobs:
         env:
           PYTHONIOENCODING: utf-8
         run: python -m unittest discover -s tests -v
+
+  posix:
+    name: POSIX 스크립트 (macos-latest, Python 3.12)
+    runs-on: macos-latest
+
+    steps:
+      - name: 저장소 체크아웃
+        uses: actions/checkout@v4
+
+      - name: Python 3.12 설치
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      # install.sh / verify.sh / uninstall.sh / tools/posix-common.sh 는
+      # bash 3.2(macOS 기본 /bin/bash)에서 동작해야 한다.
+      - name: 셸 스크립트 구문 검사 (bash -n)
+        run: |
+          set -euo pipefail
+          for script in install.sh verify.sh uninstall.sh tools/posix-common.sh tests/posix-fixture-test.sh; do
+            bash -n "$script"
+            echo "[PASS] bash -n $script"
+          done
+          printf 'bash: %s\n' "$(bash --version | head -n 1)"
+
+      - name: 테스트 실행
+        env:
+          PYTHONIOENCODING: utf-8
+        run: python -m unittest discover -s tests -v
+
+      # 실제 macOS 에서 임시 DSH 홈을 만들어 설치 → 검증 → 멱등성 → 드리프트 감지 →
+      # 제거까지 수행한다(실제 ~/.dsh 는 건드리지 않는다).
+      - name: 설치/검증/제거 픽스처 테스트
+        run: bash tests/posix-fixture-test.sh
