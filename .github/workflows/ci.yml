@@ -1,0 +1,81 @@
+name: CI
+
+# 시크릿/네트워크 불필요. 테스트는 OpenRouter 를 실제로 호출하지 않는다
+# (stdio 핸드셰이크 / tools/list / mock 기반 단위 테스트만 수행 → 과금 없음).
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  test:
+    name: 테스트 (windows-latest, Python 3.12)
+    runs-on: windows-latest
+
+    steps:
+      - name: 저장소 체크아웃
+        uses: actions/checkout@v4
+
+      - name: Python 3.12 설치
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      # install.ps1 / verify.ps1 / uninstall.ps1 / tests/run-tests.ps1 은 UTF-8(BOM 포함)
+      # 으로 저장되어야 한다. BOM 이 없으면 Windows PowerShell 5.1 이 한글을 CP949 로
+      # 오해석해 구문 오류가 발생한다(README 3절).
+      - name: PowerShell 스크립트 UTF-8 BOM 검사
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $scripts = @(
+            Get-ChildItem -Path . -Filter *.ps1 -File
+            Get-ChildItem -Path .\tests -Filter *.ps1 -File -ErrorAction SilentlyContinue
+          )
+          if ($scripts.Count -eq 0) {
+            Write-Host '[FAIL] 검사할 .ps1 파일을 찾지 못했습니다.'
+            exit 1
+          }
+          $failed = $false
+          foreach ($script in $scripts) {
+            $bytes = [System.IO.File]::ReadAllBytes($script.FullName)
+            $hasBom = ($bytes.Length -ge 3 -and $bytes[0] -eq 0xEF -and $bytes[1] -eq 0xBB -and $bytes[2] -eq 0xBF)
+            if ($hasBom) {
+              Write-Host "[PASS] UTF-8 BOM: $($script.Name)"
+            } else {
+              Write-Host "[FAIL] UTF-8 BOM 없음: $($script.Name) ($($script.FullName))"
+              $failed = $true
+            }
+          }
+          if ($failed) { exit 1 }
+
+      - name: PowerShell 스크립트 구문 검사
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $scripts = @(
+            Get-ChildItem -Path . -Filter *.ps1 -File
+            Get-ChildItem -Path .\tests -Filter *.ps1 -File -ErrorAction SilentlyContinue
+          )
+          $failed = $false
+          foreach ($script in $scripts) {
+            $tokens = $null
+            $parseErrors = $null
+            [void][System.Management.Automation.Language.Parser]::ParseFile($script.FullName, [ref]$tokens, [ref]$parseErrors)
+            if ($parseErrors -and $parseErrors.Count -gt 0) {
+              Write-Host "[FAIL] 구문 오류 $($parseErrors.Count)건: $($script.Name)"
+              foreach ($err in $parseErrors) {
+                Write-Host ("  줄 {0}: {1}" -f $err.Extent.StartLineNumber, $err.Message)
+              }
+              $failed = $true
+            } else {
+              Write-Host "[PASS] 구문 정상: $($script.Name)"
+            }
+          }
+          if ($failed) { exit 1 }
+          Write-Host '모든 PowerShell 스크립트 구문 정상'
+
+      - name: 테스트 실행
+        env:
+          PYTHONIOENCODING: utf-8
+        run: python -m unittest discover -s tests -v

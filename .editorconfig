@@ -1,0 +1,17 @@
+root = true
+
+# Windows PowerShell 5.1은 BOM 없는 UTF-8의 한글을 CP949로 오해석해 구문 오류를 낸다.
+# .ps1 은 반드시 UTF-8(BOM 포함)으로 저장한다 — tests/run-tests.ps1 과 CI가 검사한다.
+[*.ps1]
+charset = utf-8-bom
+indent_style = space
+indent_size = 4
+
+[*.{py,md,json,yml,yaml}]
+charset = utf-8
+end_of_line = lf
+indent_style = space
+indent_size = 4
+
+[*.py]
+indent_size = 4

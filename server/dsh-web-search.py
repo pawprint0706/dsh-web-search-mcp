@@ -28,11 +28,12 @@ import os
 import re
 import sys
 import urllib.error
+import urllib.parse
 import urllib.request
 from pathlib import Path
 
 SERVER_NAME = "dsh-web-search"
-SERVER_VERSION = "1.1.0"
+SERVER_VERSION = "1.1.1"
 
 # DSH MCP 클라이언트(@modelcontextprotocol/client 2.0.0)는 기본 협상 모드가
 # "legacy"라서 2025-era initialize 핸드셰이크를 수행한다. 서버가 돌려준
@@ -270,6 +271,22 @@ def _positive_int(value, default):
     return parsed if parsed > 0 else default
 
 
+def _is_openrouter_base_url(base_url: str) -> bool:
+    """호스트가 정확히 openrouter.ai 인 https URL만 허용한다.
+
+    단순 접두 일치(startswith)는 `https://openrouter.ai.evil.example/v1` 같은 유사
+    호스트를 통과시켜 Bearer 토큰이 제3자에게 전송되게 만든다. urlsplit으로 호스트를
+    정확히 비교한다.
+    """
+    try:
+        parsed = urllib.parse.urlsplit(base_url)
+        host = (parsed.hostname or "").lower()
+        port = parsed.port  # 잘못된 포트 문자열이면 ValueError
+    except ValueError:
+        return False
+    return parsed.scheme == "https" and host == "openrouter.ai" and port in (None, 443)
+
+
 def resolve_config():
     """(token, model, base_url, options, error) 튜플. 실패 시 error에 한국어 안내."""
     cfg = _user_config()
@@ -317,10 +334,11 @@ def resolve_config():
         or str(_credentials_refs().get("OPENROUTER_API_KEY") or "")
     ).strip()
 
-    if not base_url.startswith("https://openrouter.ai"):
+    if not _is_openrouter_base_url(base_url):
         return "", "", "", options, (
             f"OpenRouter 전용입니다: base_url='{base_url or '(없음)'}'에서는 "
-            "웹 검색 백엔드를 사용할 수 없습니다."
+            "웹 검색 백엔드를 사용할 수 없습니다. "
+            "(호스트가 정확히 openrouter.ai 인 https URL이어야 합니다)"
         )
     if token in PLACEHOLDER_KEYS:
         return "", "", "", options, (

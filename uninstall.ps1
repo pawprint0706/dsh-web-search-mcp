@@ -159,8 +159,23 @@ if (Test-Path -LiteralPath $TargetScript) {
     } else {
         Remove-Item -LiteralPath $TargetScript -Force
         Write-Ok '삭제 완료'
-        $left = Get-ChildItem -LiteralPath $McpDir -Force -ErrorAction SilentlyContinue
-        if (-not $left -or $left.Count -eq 0) {
+        # 서버 스크립트를 직접 실행/임포트한 과정에서 생긴 바이트코드 캐시가 남으면
+        # mcp 디렉터리가 비지 않아 아래 정리 단계가 동작하지 않는다.
+        # 남의 파일은 건드리지 않도록 우리 모듈의 캐시만 골라 지운다.
+        $CacheDir = Join-Path $McpDir '__pycache__'
+        if (Test-Path -LiteralPath $CacheDir) {
+            Get-ChildItem -LiteralPath $CacheDir -Filter 'dsh-web-search*.pyc' -Force -ErrorAction SilentlyContinue |
+                ForEach-Object { Remove-Item -LiteralPath $_.FullName -Force -ErrorAction SilentlyContinue }
+            $cacheLeft = @(Get-ChildItem -LiteralPath $CacheDir -Force -ErrorAction SilentlyContinue)
+            if ($cacheLeft.Count -eq 0) {
+                Remove-Item -LiteralPath $CacheDir -Force
+                Write-Ok '바이트코드 캐시(__pycache__) 삭제'
+            } else {
+                Write-Info "mcp 디렉터리에 다른 파일이 남아 있습니다: $CacheDir"
+            }
+        }
+        $left = @(Get-ChildItem -LiteralPath $McpDir -Force -ErrorAction SilentlyContinue)
+        if ($left.Count -eq 0) {
             Remove-Item -LiteralPath $McpDir -Force
             Write-Ok '빈 mcp 디렉터리 삭제'
         }

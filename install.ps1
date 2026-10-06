@@ -319,6 +319,7 @@ $TargetScript = Join-Path $TargetScriptDir 'dsh-web-search.py'
 
 $pyYaml = $PythonExe -replace "'", "''"
 $scriptYaml = $TargetScript -replace "'", "''"
+$dshHomeYaml = $DshHome -replace "'", "''"
 
 $blockTemplate = @'
 # >>> dsh-web-search-mcp managed block (do not edit) >>>
@@ -338,10 +339,18 @@ $blockTemplate = @'
         command: '__PYTHON__'
         args:
           - '__SCRIPT__'
-        toolCallTimeoutMs: 120000
+        # DSH는 자식 프로세스 환경에서 `DSH_*` 이름과 *KEY*/*TOKEN*/*SECRET*/*PASSWORD*
+        # 이름을 제거한다(scrubbedParentEnv). 그래서 DSH_HOME 을 여기서 명시적으로 넘긴다.
+        # 이것이 없으면 서버가 ~/.dsh 로 폴백해, -DshHome 으로 다른 홈을 지정한 설치에서
+        # 자격증명과 설정 파일을 찾지 못한다.
+        env:
+          DSH_HOME: '__DSHHOME__'
+        # 클라이언트 타임아웃은 서버 자체 타임아웃(검색 120s)보다 넉넉해야 한다.
+        # 두 값이 같으면 클라이언트가 먼저 끊어 서버 오류를 보지 못한다.
+        toolCallTimeoutMs: 180000
 # <<< dsh-web-search-mcp managed block <<<
 '@
-$managedBlock = $blockTemplate.Replace('__PYTHON__', $pyYaml).Replace('__SCRIPT__', $scriptYaml)
+$managedBlock = $blockTemplate.Replace('__PYTHON__', $pyYaml).Replace('__SCRIPT__', $scriptYaml).Replace('__DSHHOME__', $dshHomeYaml)
 
 # 5-1) 서버 스크립트
 $scriptText = Get-TextFile $SourceScript
@@ -435,7 +444,7 @@ if (-not $SkipVerify) {
     $verifyScript = Join-Path $ProjectRoot 'verify.ps1'
     if ((Test-Path -LiteralPath $verifyScript) -and -not $DryRun) {
         Write-Step '자체 점검 (MCP stdio 프로브)'
-        & $verifyScript -DshHome $DshHome -PythonPath $PythonExe
+        & $verifyScript -DshHome $DshHome -PythonPath $PythonExe -Profile $ProfileName
         if ($LASTEXITCODE -ne 0) {
             Write-Warn2 '자체 점검이 실패했습니다. 위 출력을 확인하세요.'
         }
