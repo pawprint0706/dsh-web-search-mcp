@@ -209,7 +209,64 @@ POST {baseURL}/messages        # 기본 https://api.deepseek.com/anthropic/v1
 - **미검증**: 실제 마운트와 검색 성공은 확인하지 않았다(조사만 수행). 검증은 **새 세션**에서
   해야 한다 — 기존 세션은 시작 시점의 플러그인 리비전을 유지한다.
 
-## 6. 운영 메모
+## 6. Web GUI의 플러그인 표면 — 왜 우리 MCP 서버가 목록에 안 보이는가
+
+조사 시점: DSH 44.0.0(하네스 런타임 0.2.0-rc.2), Windows x64.
+Web 클라이언트에는 플러그인 관련 표면이 셋뿐이고, **관리 단위는 모두 "번들"**이다.
+
+| 위치 | 담당 패키지 | 다루는 것 |
+|---|---|---|
+| 사이드바 **Plugins** 페이지 | `dsh-client-ui-plugin-manager` | 프로필의 **번들** 관리 — 설치/켜기/끄기/삭제. 그룹은 **Official**(설치본이 제공하되 꺼둔 번들)과 **Installed**(프로필이 가진 번들) |
+| Settings → **Built-in plugins** → *Plugin list* 탭 | `dsh-client-ui-settings-plugins` + `dsh-client-ui-settings-plugin-inventory` | **읽기 전용** 로더 인벤토리 — 에이전트 프리셋 구성(기본 펼침) + **global 평면(기본 접힘)** |
+| 사이드바 Plugins → 각 플러그인 페이지 | `ui-settings-shell` / `-agent-loop` / `-subagent` / `-web-search` | 해당 플러그인의 config 폼. **`ui-settings-mcp` 같은 MCP 전용 페이지는 없다** |
+
+핵심 근거(패키지 README 인용):
+
+- `plugin-manager`: *"**Only bundles are managed** — a dependency without a bundle patch is
+  refused before it installs; … **loading plain plugin modules stays a file operation**."*
+  그리고 *"The page excludes built-in profile bundles from cards and counts even when the
+  profile holds them as dependencies"*.
+- `ui-settings-plugin-inventory`: `pluginInventory/list` 는 *"each non-group Loader entry"* 를
+  투영한다 — 엔트리 id, 모듈 specifier, 유효 enablement(상위 그룹 disabled 포함), root fiber
+  phase. **설정 화면을 열 때 1회 스냅샷**이고 변경 구독이 없으며 변이 기능도 없다.
+- `dsh-host-plugin-inventory` 의 제약: *"**No layer attribution or mutation** — the service does
+  not identify which bundle, profile, or override introduced an entry"*.
+
+따라서 이 프로젝트의 설치 방식에는 다음이 따른다.
+
+- 설치는 프로필 패치에 **raw 로더 행**만 넣는다(`- insert:` → id `mcp-dsh-web-search`,
+  name `@deepseek-ai/dsh-mcp-client`). **번들이 아니므로** 사이드바 Plugins 페이지에는
+  카드도, problem tag도 없이 **나타나지 않는다**(프로필 dependency로도 등록되어 있지 않다).
+- 그 행은 **Settings → Built-in plugins → Plugin list 탭의 접힌 global 그룹**에서 읽기 전용으로
+  보인다(검색: `mcp`, `dsh-mcp-client`). 표시되는 것은 엔트리 id·모듈 specifier·enablement·
+  fiber phase뿐이고 편집이나 켜기/끄기 버튼은 없다.
+
+설계 이유(정황 근거):
+
+1. **번들이 생명주기 단위**다 — 설치/업그레이드/삭제는 pnpm 의존성 조작이고, 켜기/끄기는 레이어
+   선택 + 프로필 패치의 `disabled` override다. 패키지 정체성이 없는 임의 행은 이 조작의 대상이
+   될 수 없다.
+2. **MCP는 기능이 아니라 한 플러그인의 설정**이다. DSH는 셸·에이전트 루프·서브에이전트·웹 검색
+   각각에 전용 설정 페이지를 붙였지만, MCP 서버 목록을 GUI로 편집하는 화면은 두지 않았다.
+3. **이 하네스에서 설치는 주로 에이전트가 수행**한다 — `plugin_manager` 는 모델 대면 도구이고
+   (표준 프리셋에서는 `disabled: true`, Creator 모드에서 활성), 앱의 자체 스킬
+   `cordis-plugin-development/references/mcp-bundle.md` 는 MCP 연결을 **설정 전용 번들**로
+   만들어 `install_bundle` 로 설치하라고 안내한다.
+
+### GUI에 노출시키고 싶다면 (미채택)
+
+MCP 연결을 **설정 전용 번들**로 감싸면 사이드바 Plugins 에 **Installed** 카드로 나타나
+켜기/끄기·행 단위 스위치·제거를 GUI에서 할 수 있다.
+
+- `package.json`: 고유 `name`/`version` + `dsh.bundle.patch: ./cordis.patch.yml`
+- `cordis.patch.yml`: 현재 관리 블록의 `- insert:` 행
+- 설치: Plugins → **Add plugin** 에 **절대 로컬 경로** 입력(대화상자가 패키지명·Git 주소·
+  tarball·절대 로컬 경로를 받는다) 또는 `plugin_manager` 의 `install_bundle`
+
+2026-10-06 결정에 따라 채택하지 않았다 — 현재의 raw 행 방식은 `install.ps1` 만으로 끝나고
+pnpm·프로필 의존성 상태를 요구하지 않는다(5절의 구조 결정과 같은 이유).
+
+## 7. 운영 메모
 
 - `command` 는 python 실행 파일의 **고정 절대경로**다. DSH가 번들 런타임을 재생성하면
   경로가 어긋나므로, `verify.ps1` 이 패치의 `command`/`args` 경로와 소스 SHA256을 검사해

@@ -294,7 +294,7 @@ dsh-web-search-mcp/
 ├─ examples/
 │   └─ web-search.json         선택 설정 예시
 ├─ docs/
-│   └─ dsh-internals.md        DSH 내부 구조 조사 노트 (행 구성·provider seam)
+│   └─ dsh-internals.md        DSH 내부 구조 조사 노트 (행 구성·provider seam·GUI 표면)
 ├─ tests/                      단위 테스트 + stdio 스모크 테스트
 ├─ .github/workflows/ci.yml    CI (windows-latest)
 ├─ CHANGELOG.md
@@ -315,6 +315,12 @@ dsh-web-search-mcp/
   (직접 override를 시도했다가 되돌린 이력이 있습니다 — `docs/dsh-internals.md` 참고).
   다만 제공자가 비활성화되어 **API 호출 없이 즉시 실패**하므로 비용·지연 손실은 없습니다.
   `AGENTS.md` 지침이 모델을 MCP 도구로 유도합니다.
+- **GUI 사이드바의 Plugins 페이지에는 이 MCP 서버가 보이지 않습니다(정상).** DSH의 GUI는
+  **번들 단위**로만 플러그인을 관리하고(설치/켜기/끄기/삭제), 이 프로젝트는 프로필 패치에
+  **raw 로더 행** 하나를 넣는 방식이라 번들 목록에 해당하지 않습니다. 읽기 전용 목록은
+  **Settings → Built-in plugins → Plugin list** 탭의 접힌 **global** 그룹에서 볼 수 있습니다
+  (검색: `mcp`, `dsh-mcp-client`). 자세한 근거와 GUI에 노출시키는 방법은
+  `docs/dsh-internals.md` 6절 참고.
 - `command` 는 python 실행 파일의 **고정 경로**입니다. DSH가 번들 런타임을 재생성하면
   `install.ps1` 재실행이 필요할 수 있습니다.
 - DSH MCP 클라이언트는 기본 협상 모드가 `legacy`(2025-era)이므로 서버는
