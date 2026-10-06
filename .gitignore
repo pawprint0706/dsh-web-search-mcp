@@ -1,0 +1,14 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+
+# 편집기/OS
+.vscode/
+.idea/
+Thumbs.db
+.DS_Store
+
+# 로컬 설정/백업 (설치 대상이지 저장소 자산이 아님)
+*.bak-*
+web-search.local.json

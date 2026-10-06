@@ -1,0 +1,7 @@
+# 저장소에는 LF로 저장하고, 체크아웃 시 플랫폼에 맞춘다.
+* text=auto
+*.ps1 text eol=crlf
+*.py  text eol=lf
+*.md  text eol=lf
+*.json text eol=lf
+*.yml text eol=lf

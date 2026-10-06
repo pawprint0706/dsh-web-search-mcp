@@ -1,0 +1,11 @@
+{
+  "_comment": "선택 설정. ~/.dsh/web-search.json 으로 복사한 뒤 필요한 값만 남기세요. 모든 키는 생략 가능합니다.",
+  "model": "deepseek/deepseek-v4.1-flash",
+  "engine": "auto",
+  "max_results": 5,
+  "max_total_results": 15,
+  "max_uses": 3,
+  "plugin_fallback": true,
+  "base_url": "https://openrouter.ai/api/v1",
+  "api_key": ""
+}
